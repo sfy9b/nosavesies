@@ -73,7 +73,13 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
     try {
       const loc = await getLocation()
       pendingLocationRef.current = loc
-      fileInputRef.current?.click()
+      const input = fileInputRef.current
+      if (input) {
+        input.value = ''
+        requestAnimationFrame(() => {
+          input.click()
+        })
+      }
     } catch (e) {
       onError(e instanceof Error ? e.message : 'Something went wrong.')
     }
@@ -86,7 +92,9 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
         type="file"
         accept="image/*"
         capture="environment"
-        className="hidden"
+        aria-hidden
+        tabIndex={-1}
+        className="absolute left-0 top-0 h-0 w-0 overflow-hidden opacity-0"
         onChange={(e) => {
           const f = e.target.files?.[0]
           const loc = pendingLocationRef.current
