@@ -1,17 +1,22 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { compressImage } from '../lib/compress'
-import type { InsertReport } from '../types/report'
+import type { InsertReport, ObjectType } from '../types/report'
+import { OBJECT_TYPE_EMOJI, OBJECT_TYPE_LABELS, OBJECT_TYPES } from '../types/report'
 
 interface ReportButtonProps {
   onSuccess: () => void
   onError: (message: string) => void
 }
 
+type Step = 'idle' | 'getting' | 'select_type' | 'uploading'
+
 export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const locationRef = useRef<{ lat: number; lng: number } | null>(null)
+  const pendingTypeRef = useRef<ObjectType | null>(null)
+  const [step, setStep] = useState<Step>('idle')
   const [uploading, setUploading] = useState(false)
-  const [gettingLocation, setGettingLocation] = useState(false)
 
   const getLocation = (): Promise<{ lat: number; lng: number }> => {
     return new Promise((resolve, reject) => {
@@ -32,7 +37,7 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
     })
   }
 
-  const handleFile = async (file: File, lat: number, lng: number) => {
+  const handleFile = async (file: File, lat: number, lng: number, objectType: ObjectType) => {
     if (!file.type.startsWith('image/')) {
       onError('Please choose an image.')
       return
@@ -52,7 +57,7 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
       }
 
       const { data: urlData } = supabase.storage.from('photos').getPublicUrl(uploadData.path)
-      const row: InsertReport = { lat, lng, photo_url: urlData.publicUrl }
+      const row: InsertReport = { lat, lng, photo_url: urlData.publicUrl, object_type: objectType }
       const { error: insertError } = await supabase.from('reports').insert(row)
 
       if (insertError) {
@@ -64,15 +69,30 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
       onError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
     } finally {
       setUploading(false)
+      setStep('idle')
+      locationRef.current = null
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
-  // Open picker on tap (same user gesture = works on iOS). Get location after file is chosen.
-  const openPicker = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (uploading || gettingLocation) return
+  const startReport = () => {
+    if (step !== 'idle' || uploading) return
+    setStep('getting')
+    getLocation()
+      .then((loc) => {
+        locationRef.current = loc
+        setStep('select_type')
+      })
+      .catch((err) => {
+        setStep('idle')
+        onError(err instanceof Error ? err.message : 'Something went wrong.')
+      })
+  }
+
+  const openPicker = (objectType: ObjectType) => {
+    const loc = locationRef.current
+    if (!loc || step !== 'select_type') return
+    pendingTypeRef.current = objectType
     const input = fileInputRef.current
     if (input) {
       input.value = ''
@@ -82,21 +102,57 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
 
   const onFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
-    if (!f) return
-    if (!f.type.startsWith('image/')) {
-      onError('Please choose an image.')
-      return
-    }
-    setGettingLocation(true)
-    getLocation()
-      .then((loc) => {
-        setGettingLocation(false)
-        handleFile(f, loc.lat, loc.lng)
-      })
-      .catch((err) => {
-        setGettingLocation(false)
-        onError(err instanceof Error ? err.message : 'Something went wrong.')
-      })
+    const loc = locationRef.current
+    const objectType = pendingTypeRef.current
+    if (!f || !loc || !objectType) return
+    pendingTypeRef.current = null
+    setStep('uploading')
+    handleFile(f, loc.lat, loc.lng, objectType)
+  }
+
+  const cancelTypeSelect = () => {
+    setStep('idle')
+    locationRef.current = null
+  }
+
+  if (step === 'select_type') {
+    return (
+      <>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          aria-hidden
+          tabIndex={-1}
+          className="absolute left-0 top-0 h-0 w-0 overflow-hidden opacity-0"
+          onChange={onFileChosen}
+        />
+        <div className="flex flex-col gap-3">
+          <p className="text-center text-sm font-medium text-white">What&apos;s blocking the spot?</p>
+          <div className="grid grid-cols-2 gap-3">
+            {OBJECT_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => openPicker(type)}
+                disabled={uploading}
+                className="flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-2xl bg-[#2a2a2a] py-4 text-white transition active:scale-[0.98] disabled:opacity-70"
+              >
+                <span className="text-2xl">{OBJECT_TYPE_EMOJI[type]}</span>
+                <span className="text-sm font-semibold">{OBJECT_TYPE_LABELS[type]}</span>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={cancelTypeSelect}
+            className="min-h-[48px] text-sm text-neutral-400 underline"
+          >
+            Cancel
+          </button>
+        </div>
+      </>
+    )
   }
 
   return (
@@ -112,14 +168,12 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
       />
       <button
         type="button"
-        onClick={openPicker}
-        disabled={uploading || gettingLocation}
+        onClick={startReport}
+        disabled={uploading || step === 'getting'}
         className="flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-2xl bg-[#FF6B00] px-6 py-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98] disabled:opacity-70"
       >
-        {uploading ? (
+        {step === 'getting' || uploading ? (
           <span className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-        ) : gettingLocation ? (
-          <span className="text-sm">Getting location…</span>
         ) : (
           <>Report a Savesie 🚧</>
         )}

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api'
-import type { Report } from '../types/report'
+import type { ObjectType, Report } from '../types/report'
+import { OBJECT_TYPE_EMOJI, OBJECT_TYPE_LABELS, OBJECT_TYPES } from '../types/report'
 import { supabase } from '../lib/supabase'
 import { PinDetailSheet } from './PinDetailSheet'
+
+type FilterType = 'all' | ObjectType
 
 const PHILLY_CENTER = { lat: 39.9526, lng: -75.1652 }
 const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' }
@@ -31,16 +34,31 @@ function isActive(report: Report) {
   return new Date(report.expires_at) > new Date()
 }
 
+function reportEmoji(report: Report): string {
+  const t = report.object_type as ObjectType | undefined
+  return t && t in OBJECT_TYPE_EMOJI ? OBJECT_TYPE_EMOJI[t] : '🚧'
+}
+
+const FILTERS: { value: FilterType; label: string }[] = [
+  { value: 'all', label: 'All' },
+  ...OBJECT_TYPES.map((t) => ({ value: t as FilterType, label: OBJECT_TYPE_LABELS[t] })),
+]
+
 export function MapView() {
   const [reports, setReports] = useState<Report[]>([])
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<FilterType>('all')
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   })
 
   const activeReports = useMemo(() => reports.filter(isActive), [reports])
+  const filteredReports = useMemo(() => {
+    if (filter === 'all') return activeReports
+    return activeReports.filter((r) => r.object_type === filter)
+  }, [activeReports, filter])
 
   const fetchReports = useCallback(async () => {
     const { data, error } = await supabase
@@ -87,17 +105,33 @@ export function MapView() {
   return (
     <>
       <div className="relative h-full w-full">
+        <div className="absolute left-0 right-0 top-0 z-10 flex gap-2 overflow-x-auto bg-[#1a1a1a]/95 px-3 py-2 pb-safe">
+          {FILTERS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setFilter(value)}
+              className={`min-h-[44px] shrink-0 rounded-full px-4 text-sm font-medium transition ${
+                filter === value
+                  ? 'bg-[#FF6B00] text-white'
+                  : 'bg-[#2a2a2a] text-neutral-300 active:bg-[#333]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <GoogleMap
           mapContainerStyle={MAP_CONTAINER_STYLE}
           center={PHILLY_CENTER}
           zoom={13}
           options={DARK_MAP_OPTIONS}
         >
-          {activeReports.map((report) => (
+          {filteredReports.map((report) => (
             <Marker
               key={report.id}
               position={{ lat: report.lat, lng: report.lng }}
-              label={{ text: '🚧', fontSize: '24px' }}
+              label={{ text: reportEmoji(report), fontSize: '24px' }}
               onClick={() => setSelectedReport(report)}
             />
           ))}

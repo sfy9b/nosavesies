@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Report } from '../types/report'
+import { OBJECT_TYPE_LABELS } from '../types/report'
 
 interface PinDetailSheetProps {
   report: Report
@@ -67,7 +68,12 @@ export function PinDetailSheet({ report, onClose }: PinDetailSheetProps) {
             className="w-full object-cover"
           />
           <div className="space-y-2 p-4">
-            <p className="text-sm text-neutral-400">{timeAgo(report.created_at)}</p>
+            <p className="text-sm text-neutral-400">
+              {timeAgo(report.created_at)}
+              {report.object_type && report.object_type in OBJECT_TYPE_LABELS && (
+                <span className="ml-2 text-white"> · {(OBJECT_TYPE_LABELS as Record<string, string>)[report.object_type]}</span>
+              )}
+            </p>
             <p className="min-h-[1.5rem] text-white">{address ?? 'Loading address…'}</p>
             <button
               type="button"
