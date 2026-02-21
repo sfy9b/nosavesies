@@ -5,7 +5,8 @@ function getStoredIds(): Set<string> {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return new Set()
     const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed) ? new Set(parsed as string[]) : new Set()
+    if (!Array.isArray(parsed)) return new Set()
+    return new Set((parsed as unknown[]).filter((id): id is string => typeof id === 'string'))
   } catch {
     return new Set()
   }
@@ -20,7 +21,9 @@ function setStoredIds(ids: Set<string>): void {
 }
 
 export function hasResolved(reportId: string): boolean {
-  return getStoredIds().has(reportId)
+  if (typeof reportId !== 'string' || reportId.length === 0) return false
+  const ids = getStoredIds()
+  return ids.has(reportId)
 }
 
 export function markResolved(reportId: string): void {

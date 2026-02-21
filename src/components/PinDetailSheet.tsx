@@ -33,6 +33,7 @@ export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpen,
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
   const alreadyResolved = hasResolved(report.id) || report.resolved === true
+  console.log('alreadyResolved:', report.id, hasResolved(report.id), report.resolved)
 
   const openPhotoViewer = () => {
     setPhotoViewerOpen(true)
@@ -177,7 +178,6 @@ export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpen,
         <PhotoViewer
           src={report.photo_url}
           alt="Reported savesie"
-          onOpen={onPhotoViewerOpen}
           onClose={closePhotoViewer}
         />
       )}

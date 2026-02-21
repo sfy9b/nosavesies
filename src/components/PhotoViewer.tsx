@@ -3,11 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 interface PhotoViewerProps {
   src: string
   alt: string
-  onOpen?: () => void
   onClose: () => void
 }
 
-export function PhotoViewer({ src, alt, onOpen, onClose }: PhotoViewerProps) {
+export function PhotoViewer({ src, alt, onClose }: PhotoViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const [scale, setScale] = useState(1)
@@ -16,13 +15,6 @@ export function PhotoViewer({ src, alt, onOpen, onClose }: PhotoViewerProps) {
   const lastPinchCenterRef = useRef<{ x: number; y: number } | null>(null)
   const lastTouchRef = useRef<{ x: number; y: number } | null>(null)
   const [isPinching, setIsPinching] = useState(false)
-
-  useEffect(() => {
-    onOpen?.()
-    return () => {
-      onClose()
-    }
-  }, [onOpen, onClose])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -85,8 +77,13 @@ export function PhotoViewer({ src, alt, onOpen, onClose }: PhotoViewerProps) {
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[60] flex items-center justify-center"
+      className="fixed inset-0 z-[60]"
       style={{
+        width: '100vw',
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(20px)',
         animation: 'photoViewerBackdropIn 0.25s ease-out',
@@ -116,16 +113,22 @@ export function PhotoViewer({ src, alt, onOpen, onClose }: PhotoViewerProps) {
         </svg>
       </button>
       <div
-        className="flex h-full w-full items-center justify-center p-4 pt-14"
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: 'none', paddingTop: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}
         onClick={(e) => e.stopPropagation()}
       >
         <img
           ref={imageRef}
           src={src}
           alt={alt}
-          className="max-h-full max-w-full select-none object-contain"
+          className="select-none"
           style={{
+            maxWidth: 'min(90vw, 1200px)',
+            maxHeight: '85vh',
+            width: 'auto',
+            height: 'auto',
+            objectFit: 'contain',
+            borderRadius: 8,
+            boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
             transform: `scale(${scale}) translate(${translate.x}px, ${translate.y}px)`,
             transition: isPinching ? 'none' : 'transform 0.1s ease-out',
           }}
