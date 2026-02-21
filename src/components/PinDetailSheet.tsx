@@ -9,6 +9,7 @@ interface PinDetailSheetProps {
   report: Report
   onClose: () => void
   onResolved?: (reportId: string) => void
+  onPhotoViewerOpenChange?: (open: boolean) => void
 }
 
 function timeAgo(dateStr: string): string {
@@ -24,13 +25,22 @@ function timeAgo(dateStr: string): string {
   return `Reported ${diffDays} day${diffDays === 1 ? '' : 's'} ago`
 }
 
-export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetProps) {
+export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpenChange }: PinDetailSheetProps) {
   const [address, setAddress] = useState<string | null>(null)
   const [showGoneConfirm, setShowGoneConfirm] = useState(false)
   const [resolving, setResolving] = useState(false)
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-  const alreadyResolved = hasResolved(report.id)
+  const alreadyResolved = hasResolved(report.id) || report.resolved === true
+
+  const openPhotoViewer = () => {
+    setPhotoViewerOpen(true)
+    onPhotoViewerOpenChange?.(true)
+  }
+  const closePhotoViewer = () => {
+    setPhotoViewerOpen(false)
+    onPhotoViewerOpenChange?.(false)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -76,7 +86,7 @@ export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetPr
         aria-label="Close"
       />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] overflow-hidden rounded-t-2xl bg-[#1a1a1a] shadow-xl"
+        className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[85vh] flex-col rounded-t-2xl bg-[#1a1a1a] shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-label="Report details"
@@ -84,10 +94,10 @@ export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetPr
         <div className="flex justify-center pt-3">
           <div className="h-1 w-12 rounded-full bg-neutral-600" />
         </div>
-        <div className="overflow-y-auto pb-safe">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <button
             type="button"
-            onClick={() => setPhotoViewerOpen(true)}
+            onClick={openPhotoViewer}
             className="block w-full px-4 pt-2"
           >
             <div className="aspect-video w-full overflow-hidden rounded-xl bg-[#2a2a2a]">
@@ -108,56 +118,57 @@ export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetPr
               )}
             </p>
             <p className="min-h-[1.5rem] text-white">{address ?? 'Loading address…'}</p>
-
-            {!showGoneConfirm ? (
-              <>
-                {!alreadyResolved && (
-                  <button
-                    type="button"
-                    onClick={() => setShowGoneConfirm(true)}
-                    className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#2a2a2a] font-semibold text-white transition active:opacity-90"
-                  >
-                    Is the savesie gone?
-                  </button>
-                )}
+          </div>
+        </div>
+        <div className="shrink-0 border-t border-neutral-800 bg-[#1a1a1a] p-4 pb-[env(safe-area-inset-bottom)]">
+          {!showGoneConfirm ? (
+            <>
+              {!alreadyResolved && (
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#FF6B00] font-semibold text-white transition active:opacity-90"
+                  onClick={() => setShowGoneConfirm(true)}
+                  className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#2a2a2a] font-semibold text-white transition active:opacity-90"
                 >
-                  Close
+                  Is the savesie gone?
                 </button>
-              </>
-            ) : (
-              <div className="mt-2 rounded-xl border border-neutral-700 bg-[#252525] p-4">
-                <p className="mb-3 text-center text-sm font-medium text-white">
-                  Mark this spot as cleared?
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleMarkGone}
-                    disabled={resolving}
-                    className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[#FF6B00] font-semibold text-white transition active:opacity-90 disabled:opacity-50"
-                  >
-                    {resolving ? (
-                      <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    ) : (
-                      "Yes, it's gone"
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowGoneConfirm(false)}
-                    disabled={resolving}
-                    className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[#2a2a2a] font-semibold text-white transition active:opacity-90"
-                  >
-                    Nope, still there
-                  </button>
-                </div>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className={`flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#FF6B00] font-semibold text-white transition active:opacity-90 ${!alreadyResolved ? 'mt-2' : ''}`}
+              >
+                Close
+              </button>
+            </>
+          ) : (
+            <div className="rounded-xl border border-neutral-700 bg-[#252525] p-4">
+              <p className="mb-3 text-center text-sm font-medium text-white">
+                Mark this spot as cleared?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleMarkGone}
+                  disabled={resolving}
+                  className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[#FF6B00] font-semibold text-white transition active:opacity-90 disabled:opacity-50"
+                >
+                  {resolving ? (
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    "Yes, it's gone"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGoneConfirm(false)}
+                  disabled={resolving}
+                  className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[#2a2a2a] font-semibold text-white transition active:opacity-90"
+                >
+                  Nope, still there
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -165,7 +176,7 @@ export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetPr
         <PhotoViewer
           src={report.photo_url}
           alt="Reported savesie"
-          onClose={() => setPhotoViewerOpen(false)}
+          onClose={closePhotoViewer}
         />
       )}
     </>
