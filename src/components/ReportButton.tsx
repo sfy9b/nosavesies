@@ -10,8 +10,8 @@ interface ReportButtonProps {
 
 export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const pendingLocationRef = useRef<{ lat: number; lng: number } | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [gettingLocation, setGettingLocation] = useState(false)
 
   const getLocation = (): Promise<{ lat: number; lng: number }> => {
     return new Promise((resolve, reject) => {
@@ -68,22 +68,33 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
     }
   }
 
-  const openCamera = (e: React.MouseEvent<HTMLButtonElement>) => {
+  // Open picker on tap (same user gesture = works on iOS). Get location after file is chosen.
+  const openPicker = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
-    if (uploading) return
+    if (uploading || gettingLocation) return
+    const input = fileInputRef.current
+    if (input) {
+      input.value = ''
+      input.click()
+    }
+  }
+
+  const onFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (!f.type.startsWith('image/')) {
+      onError('Please choose an image.')
+      return
+    }
+    setGettingLocation(true)
     getLocation()
       .then((loc) => {
-        pendingLocationRef.current = loc
-        const input = fileInputRef.current
-        if (input) {
-          input.value = ''
-          requestAnimationFrame(() => {
-            input.click()
-          })
-        }
+        setGettingLocation(false)
+        handleFile(f, loc.lat, loc.lng)
       })
       .catch((err) => {
+        setGettingLocation(false)
         onError(err instanceof Error ? err.message : 'Something went wrong.')
       })
   }
@@ -94,30 +105,23 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         aria-hidden
         tabIndex={-1}
         className="absolute left-0 top-0 h-0 w-0 overflow-hidden opacity-0"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          const loc = pendingLocationRef.current
-          if (!f || !loc) return
-          pendingLocationRef.current = null
-          handleFile(f, loc.lat, loc.lng)
-        }}
+        onChange={onFileChosen}
       />
       <button
         type="button"
-        onClick={openCamera}
-        disabled={uploading}
+        onClick={openPicker}
+        disabled={uploading || gettingLocation}
         className="flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-2xl bg-[#FF6B00] px-6 py-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98] disabled:opacity-70"
       >
         {uploading ? (
           <span className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+        ) : gettingLocation ? (
+          <span className="text-sm">Getting location…</span>
         ) : (
-          <>
-            Report a Savesie 🚧
-          </>
+          <>Report a Savesie 🚧</>
         )}
       </button>
     </>
