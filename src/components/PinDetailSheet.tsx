@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { hasConfirmed, markConfirmed } from '../lib/confirmStorage'
+import { hasResolved, markResolved } from '../lib/resolvedStorage'
 import type { Report } from '../types/report'
 import { OBJECT_TYPE_LABELS } from '../types/report'
+import { PhotoViewer } from './PhotoViewer'
 
 interface PinDetailSheetProps {
   report: Report
   onClose: () => void
-  onConfirm?: (reportId: string, confirms: number, expiresAt: string) => void
+  onResolved?: (reportId: string) => void
 }
 
 function timeAgo(dateStr: string): string {
@@ -23,13 +24,13 @@ function timeAgo(dateStr: string): string {
   return `Reported ${diffDays} day${diffDays === 1 ? '' : 's'} ago`
 }
 
-export function PinDetailSheet({ report, onClose, onConfirm }: PinDetailSheetProps) {
+export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetProps) {
   const [address, setAddress] = useState<string | null>(null)
-  const [confirms, setConfirms] = useState<number>(report.confirms ?? 0)
-  const [expiresAt, setExpiresAt] = useState<string>(report.expires_at)
-  const [confirming, setConfirming] = useState(false)
+  const [showGoneConfirm, setShowGoneConfirm] = useState(false)
+  const [resolving, setResolving] = useState(false)
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-  const alreadyConfirmed = hasConfirmed(report.id)
+  const alreadyResolved = hasResolved(report.id)
 
   useEffect(() => {
     let cancelled = false
@@ -49,24 +50,19 @@ export function PinDetailSheet({ report, onClose, onConfirm }: PinDetailSheetPro
     }
   }, [report.lat, report.lng, apiKey])
 
-  const handleConfirm = async () => {
-    if (alreadyConfirmed || confirming) return
-    setConfirming(true)
-    const newConfirms = confirms + 1
-    const newExpiresAt = new Date(Date.parse(expiresAt) + 2 * 60 * 60 * 1000).toISOString()
+  const handleMarkGone = async () => {
+    if (alreadyResolved || resolving) return
+    setResolving(true)
     const { error } = await supabase
       .from('reports')
-      .update({ confirms: newConfirms, expires_at: newExpiresAt })
+      .update({ resolved: true })
       .eq('id', report.id)
-    if (error) {
-      setConfirming(false)
-      return
-    }
-    markConfirmed(report.id)
-    setConfirms(newConfirms)
-    setExpiresAt(newExpiresAt)
-    setConfirming(false)
-    onConfirm?.(report.id, newConfirms, newExpiresAt)
+    setResolving(false)
+    if (error) return
+    markResolved(report.id)
+    setShowGoneConfirm(false)
+    onResolved?.(report.id)
+    onClose()
   }
 
   return (
@@ -89,48 +85,89 @@ export function PinDetailSheet({ report, onClose, onConfirm }: PinDetailSheetPro
           <div className="h-1 w-12 rounded-full bg-neutral-600" />
         </div>
         <div className="overflow-y-auto pb-safe">
-          <img
-            src={report.photo_url}
-            alt="Reported savesie"
-            className="w-full object-cover"
-          />
+          <button
+            type="button"
+            onClick={() => setPhotoViewerOpen(true)}
+            className="block w-full px-4 pt-2"
+          >
+            <div className="aspect-video w-full overflow-hidden rounded-xl bg-[#2a2a2a]">
+              <img
+                src={report.photo_url}
+                alt="Reported savesie"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </button>
           <div className="space-y-2 p-4">
             <p className="text-sm text-neutral-400">
               {timeAgo(report.created_at)}
               {report.object_type && report.object_type in OBJECT_TYPE_LABELS && (
-                <span className="ml-2 text-white"> · {(OBJECT_TYPE_LABELS as Record<string, string>)[report.object_type]}</span>
+                <span className="ml-2 text-white">
+                  · {(OBJECT_TYPE_LABELS as Record<string, string>)[report.object_type]}
+                </span>
               )}
             </p>
             <p className="min-h-[1.5rem] text-white">{address ?? 'Loading address…'}</p>
-            {confirms > 0 && (
-              <p className="text-sm text-neutral-400">
-                {confirms} {confirms === 1 ? 'person' : 'people'} confirmed this
-              </p>
+
+            {!showGoneConfirm ? (
+              <>
+                {!alreadyResolved && (
+                  <button
+                    type="button"
+                    onClick={() => setShowGoneConfirm(true)}
+                    className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#2a2a2a] font-semibold text-white transition active:opacity-90"
+                  >
+                    Is the savesie gone?
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#FF6B00] font-semibold text-white transition active:opacity-90"
+                >
+                  Close
+                </button>
+              </>
+            ) : (
+              <div className="mt-2 rounded-xl border border-neutral-700 bg-[#252525] p-4">
+                <p className="mb-3 text-center text-sm font-medium text-white">
+                  Mark this spot as cleared?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleMarkGone}
+                    disabled={resolving}
+                    className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[#FF6B00] font-semibold text-white transition active:opacity-90 disabled:opacity-50"
+                  >
+                    {resolving ? (
+                      <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      "Yes, it's gone"
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowGoneConfirm(false)}
+                    disabled={resolving}
+                    className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[#2a2a2a] font-semibold text-white transition active:opacity-90"
+                  >
+                    Nope, still there
+                  </button>
+                </div>
+              </div>
             )}
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={alreadyConfirmed || confirming}
-              className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#2a2a2a] font-semibold text-white transition active:opacity-90 disabled:opacity-50"
-            >
-              {confirming ? (
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : alreadyConfirmed ? (
-                'Confirmed ✓'
-              ) : (
-                Savesie still there?
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#FF6B00] font-semibold text-white transition active:opacity-90"
-            >
-              Close
-            </button>
           </div>
         </div>
       </div>
+
+      {photoViewerOpen && (
+        <PhotoViewer
+          src={report.photo_url}
+          alt="Reported savesie"
+          onClose={() => setPhotoViewerOpen(false)}
+        />
+      )}
     </>
   )
 }

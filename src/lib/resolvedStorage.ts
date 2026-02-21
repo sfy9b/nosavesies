@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'nosavesies_confirmed'
+const STORAGE_KEY = 'nosavesies_resolved'
 
 function getStoredIds(): Set<string> {
   try {
@@ -19,11 +19,11 @@ function setStoredIds(ids: Set<string>): void {
   }
 }
 
-export function hasConfirmed(reportId: string): boolean {
+export function hasResolved(reportId: string): boolean {
   return getStoredIds().has(reportId)
 }
 
-export function markConfirmed(reportId: string): void {
+export function markResolved(reportId: string): void {
   const ids = getStoredIds()
   ids.add(reportId)
   setStoredIds(ids)

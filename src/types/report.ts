@@ -24,7 +24,7 @@ export interface Report {
   created_at: string
   expires_at: string
   object_type?: string | null
-  confirms?: number | null
+  resolved?: boolean | null
 }
 
 export interface InsertReport {

@@ -31,7 +31,7 @@ const DARK_MAP_OPTIONS: google.maps.MapOptions = {
 }
 
 function isActive(report: Report) {
-  return new Date(report.expires_at) > new Date()
+  return new Date(report.expires_at) > new Date() && !report.resolved
 }
 
 function reportEmoji(report: Report): string {
@@ -44,7 +44,11 @@ const FILTERS: { value: FilterType; label: string }[] = [
   ...OBJECT_TYPES.map((t) => ({ value: t as FilterType, label: OBJECT_TYPE_LABELS[t] })),
 ]
 
-export function MapView() {
+interface MapViewProps {
+  onShowToast?: (message: string) => void
+}
+
+export function MapView({ onShowToast }: MapViewProps = {}) {
   const [reports, setReports] = useState<Report[]>([])
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
@@ -65,6 +69,7 @@ export function MapView() {
       .from('reports')
       .select('*')
       .gt('expires_at', new Date().toISOString())
+      .or('resolved.eq.false,resolved.is.null')
     if (!error) setReports(data ?? [])
     setLoading(false)
   }, [])
@@ -148,17 +153,10 @@ export function MapView() {
         <PinDetailSheet
           report={selectedReport}
           onClose={() => setSelectedReport(null)}
-          onConfirm={(reportId, newConfirms, newExpiresAt) => {
-            setReports((prev) =>
-              prev.map((r) =>
-                r.id === reportId ? { ...r, confirms: newConfirms, expires_at: newExpiresAt } : r
-              )
-            )
-            setSelectedReport((prev) =>
-              prev?.id === reportId
-                ? { ...prev, confirms: newConfirms, expires_at: newExpiresAt }
-                : prev
-            )
+          onResolved={(reportId) => {
+            setReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, resolved: true } : r)))
+            setSelectedReport(null)
+            onShowToast?.('Spot marked as cleared!')
           }}
         />
       )}
