@@ -5,13 +5,14 @@ import type { InsertReport, ObjectType } from '../types/report'
 import { OBJECT_TYPE_EMOJI, OBJECT_TYPE_LABELS, OBJECT_TYPES } from '../types/report'
 
 interface ReportButtonProps {
+  isPhotoOpen?: boolean
   onSuccess: () => void
   onError: (message: string) => void
 }
 
 type Step = 'idle' | 'getting' | 'select_type' | 'uploading'
 
-export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
+export function ReportButton({ isPhotoOpen = false, onSuccess, onError }: ReportButtonProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const locationRef = useRef<{ lat: number; lng: number } | null>(null)
   const pendingTypeRef = useRef<ObjectType | null>(null)
@@ -117,7 +118,7 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
 
   if (step === 'select_type') {
     return (
-      <>
+      <div style={{ display: isPhotoOpen ? 'none' : 'flex' }} className="flex flex-col gap-3">
         <input
           ref={fileInputRef}
           type="file"
@@ -151,7 +152,7 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
             Cancel
           </button>
         </div>
-      </>
+      </div>
     )
   }
 
@@ -171,6 +172,7 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
         onClick={startReport}
         disabled={uploading || step === 'getting'}
         className="flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-2xl bg-[#FF6B00] px-6 py-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98] disabled:opacity-70"
+        style={{ display: isPhotoOpen ? 'none' : 'flex' }}
       >
         {step === 'getting' || uploading ? (
           <span className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />

@@ -5,21 +5,20 @@ import { Toast } from './components/Toast'
 
 function App() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
+  const [isPhotoOpen, setIsPhotoOpen] = useState(false)
 
   return (
     <div className="flex h-[100dvh] w-full flex-col bg-[#1a1a1a]">
       <main className="relative flex-1 overflow-hidden">
         <MapView
           onShowToast={(message) => setToast({ type: 'success', message })}
-          onPhotoViewerOpenChange={setPhotoViewerOpen}
+          onPhotoViewerOpen={() => setIsPhotoOpen(true)}
+          onPhotoViewerClose={() => setIsPhotoOpen(false)}
         />
-        <div
-          className="absolute bottom-6 left-0 right-0 z-[100] flex justify-center px-4 pb-[env(safe-area-inset-bottom)] pointer-events-none"
-          style={{ visibility: photoViewerOpen ? 'hidden' : 'visible' }}
-        >
+        <div className="absolute bottom-6 left-0 right-0 z-[100] flex justify-center px-4 pb-[env(safe-area-inset-bottom)] pointer-events-none">
           <div className="pointer-events-auto">
             <ReportButton
+              isPhotoOpen={isPhotoOpen}
               onSuccess={() => setToast({ type: 'success', message: 'Savesie reported! 🚧' })}
               onError={(message) => setToast({ type: 'error', message })}
             />

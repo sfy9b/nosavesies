@@ -3,10 +3,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 interface PhotoViewerProps {
   src: string
   alt: string
+  onOpen?: () => void
   onClose: () => void
 }
 
-export function PhotoViewer({ src, alt, onClose }: PhotoViewerProps) {
+export function PhotoViewer({ src, alt, onOpen, onClose }: PhotoViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const [scale, setScale] = useState(1)
@@ -15,6 +16,13 @@ export function PhotoViewer({ src, alt, onClose }: PhotoViewerProps) {
   const lastPinchCenterRef = useRef<{ x: number; y: number } | null>(null)
   const lastTouchRef = useRef<{ x: number; y: number } | null>(null)
   const [isPinching, setIsPinching] = useState(false)
+
+  useEffect(() => {
+    onOpen?.()
+    return () => {
+      onClose()
+    }
+  }, [onOpen, onClose])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -26,6 +34,10 @@ export function PhotoViewer({ src, alt, onClose }: PhotoViewerProps) {
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose()
+  }
+
+  const handleClose = () => {
+    onClose()
   }
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -95,7 +107,7 @@ export function PhotoViewer({ src, alt, onClose }: PhotoViewerProps) {
       `}</style>
       <button
         type="button"
-        onClick={onClose}
+        onClick={handleClose}
         className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition hover:bg-black/70"
         aria-label="Close"
       >

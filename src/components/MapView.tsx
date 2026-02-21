@@ -46,10 +46,11 @@ const FILTERS: { value: FilterType; label: string }[] = [
 
 interface MapViewProps {
   onShowToast?: (message: string) => void
-  onPhotoViewerOpenChange?: (open: boolean) => void
+  onPhotoViewerOpen?: () => void
+  onPhotoViewerClose?: () => void
 }
 
-export function MapView({ onShowToast, onPhotoViewerOpenChange }: MapViewProps = {}) {
+export function MapView({ onShowToast, onPhotoViewerOpen, onPhotoViewerClose }: MapViewProps = {}) {
   const [reports, setReports] = useState<Report[]>([])
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
@@ -155,15 +156,16 @@ export function MapView({ onShowToast, onPhotoViewerOpenChange }: MapViewProps =
           report={selectedReport}
           onClose={() => {
             setSelectedReport(null)
-            onPhotoViewerOpenChange?.(false)
+            onPhotoViewerClose?.()
           }}
           onResolved={(reportId) => {
             setReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, resolved: true } : r)))
             setSelectedReport(null)
-            onPhotoViewerOpenChange?.(false)
+            onPhotoViewerClose?.()
             onShowToast?.('Spot marked as cleared!')
           }}
-          onPhotoViewerOpenChange={onPhotoViewerOpenChange}
+          onPhotoViewerOpen={onPhotoViewerOpen}
+          onPhotoViewerClose={onPhotoViewerClose}
         />
       )}
     </>

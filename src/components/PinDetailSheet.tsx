@@ -9,7 +9,8 @@ interface PinDetailSheetProps {
   report: Report
   onClose: () => void
   onResolved?: (reportId: string) => void
-  onPhotoViewerOpenChange?: (open: boolean) => void
+  onPhotoViewerOpen?: () => void
+  onPhotoViewerClose?: () => void
 }
 
 function timeAgo(dateStr: string): string {
@@ -25,7 +26,7 @@ function timeAgo(dateStr: string): string {
   return `Reported ${diffDays} day${diffDays === 1 ? '' : 's'} ago`
 }
 
-export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpenChange }: PinDetailSheetProps) {
+export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpen, onPhotoViewerClose }: PinDetailSheetProps) {
   const [address, setAddress] = useState<string | null>(null)
   const [showGoneConfirm, setShowGoneConfirm] = useState(false)
   const [resolving, setResolving] = useState(false)
@@ -35,11 +36,11 @@ export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpenC
 
   const openPhotoViewer = () => {
     setPhotoViewerOpen(true)
-    onPhotoViewerOpenChange?.(true)
+    onPhotoViewerOpen?.()
   }
   const closePhotoViewer = () => {
     setPhotoViewerOpen(false)
-    onPhotoViewerOpenChange?.(false)
+    onPhotoViewerClose?.()
   }
 
   useEffect(() => {
@@ -176,6 +177,7 @@ export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpenC
         <PhotoViewer
           src={report.photo_url}
           alt="Reported savesie"
+          onOpen={onPhotoViewerOpen}
           onClose={closePhotoViewer}
         />
       )}
