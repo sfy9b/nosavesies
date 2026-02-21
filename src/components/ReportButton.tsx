@@ -68,21 +68,24 @@ export function ReportButton({ onSuccess, onError }: ReportButtonProps) {
     }
   }
 
-  const openCamera = async () => {
+  const openCamera = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
     if (uploading) return
-    try {
-      const loc = await getLocation()
-      pendingLocationRef.current = loc
-      const input = fileInputRef.current
-      if (input) {
-        input.value = ''
-        requestAnimationFrame(() => {
-          input.click()
-        })
-      }
-    } catch (e) {
-      onError(e instanceof Error ? e.message : 'Something went wrong.')
-    }
+    getLocation()
+      .then((loc) => {
+        pendingLocationRef.current = loc
+        const input = fileInputRef.current
+        if (input) {
+          input.value = ''
+          requestAnimationFrame(() => {
+            input.click()
+          })
+        }
+      })
+      .catch((err) => {
+        onError(err instanceof Error ? err.message : 'Something went wrong.')
+      })
   }
 
   return (
