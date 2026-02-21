@@ -145,7 +145,22 @@ export function MapView() {
       </div>
 
       {selectedReport && (
-        <PinDetailSheet report={selectedReport} onClose={() => setSelectedReport(null)} />
+        <PinDetailSheet
+          report={selectedReport}
+          onClose={() => setSelectedReport(null)}
+          onConfirm={(reportId, newConfirms, newExpiresAt) => {
+            setReports((prev) =>
+              prev.map((r) =>
+                r.id === reportId ? { ...r, confirms: newConfirms, expires_at: newExpiresAt } : r
+              )
+            )
+            setSelectedReport((prev) =>
+              prev?.id === reportId
+                ? { ...prev, confirms: newConfirms, expires_at: newExpiresAt }
+                : prev
+            )
+          }}
+        />
       )}
     </>
   )

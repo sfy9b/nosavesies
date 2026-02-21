@@ -23,6 +23,7 @@ create table public.reports (
   photo_url text not null,
   city text default 'Philadelphia',
   object_type varchar,
+  confirms integer default 0,
   created_at timestamptz default now(),
   expires_at timestamptz default (now() + interval '48 hours')
 );
@@ -31,9 +32,12 @@ alter table public.reports enable row level security;
 
 create policy "Allow public read" on public.reports for select using (true);
 create policy "Allow public insert" on public.reports for insert with check (true);
+create policy "Allow public update" on public.reports for update using (true);
 
--- Add object type (run if table already exists):
+-- If table already exists, run:
 -- alter table public.reports add column if not exists object_type varchar;
+-- alter table public.reports add column if not exists confirms integer default 0;
+-- create policy "Allow public update" on public.reports for update using (true);
 ```
 
 3. **Storage** — Create a bucket named `photos` (public). In Storage → New bucket → name: `photos`, Public bucket: ON. In Storage → Policies, add a policy so anyone can upload (e.g. allow `insert` and `update` for anon/authenticated on bucket `photos`). Allow public read so report photos are viewable.
