@@ -3,14 +3,11 @@ import { supabase } from '../lib/supabase'
 import { hasResolved, markResolved } from '../lib/resolvedStorage'
 import type { Report } from '../types/report'
 import { OBJECT_TYPE_LABELS } from '../types/report'
-import { PhotoViewer } from './PhotoViewer'
 
 interface PinDetailSheetProps {
   report: Report
   onClose: () => void
   onResolved?: (reportId: string) => void
-  onPhotoViewerOpen?: () => void
-  onPhotoViewerClose?: () => void
 }
 
 function timeAgo(dateStr: string): string {
@@ -26,23 +23,20 @@ function timeAgo(dateStr: string): string {
   return `Reported ${diffDays} day${diffDays === 1 ? '' : 's'} ago`
 }
 
-export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpen, onPhotoViewerClose }: PinDetailSheetProps) {
+export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetProps) {
   const [address, setAddress] = useState<string | null>(null)
   const [showGoneConfirm, setShowGoneConfirm] = useState(false)
   const [resolving, setResolving] = useState(false)
-  const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
   const alreadyResolved = hasResolved(report.id) || report.resolved === true
-  console.log('alreadyResolved:', report.id, hasResolved(report.id), report.resolved)
 
-  const openPhotoViewer = () => {
-    setPhotoViewerOpen(true)
-    onPhotoViewerOpen?.()
-  }
-  const closePhotoViewer = () => {
-    setPhotoViewerOpen(false)
-    onPhotoViewerClose?.()
-  }
+  // Hide report button while this is open
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('photoViewerOpen'))
+    return () => {
+      window.dispatchEvent(new CustomEvent('photoViewerClose'))
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -57,9 +51,7 @@ export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpen,
       .catch(() => {
         if (!cancelled) setAddress('Address unavailable')
       })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [report.lat, report.lng, apiKey])
 
   const handleMarkGone = async () => {
@@ -78,109 +70,183 @@ export function PinDetailSheet({ report, onClose, onResolved, onPhotoViewerOpen,
   }
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-40 bg-black/50"
-        onClick={onClose}
-        onKeyDown={(e) => e.key === 'Escape' && onClose()}
-        role="button"
-        tabIndex={0}
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        animation: 'fadeIn 0.2s ease-out',
+      }}
+      onClick={onClose}
+    >
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
+
+      {/* Close button */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClose() }}
+        style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+        }}
         aria-label="Close"
-      />
-      <div
-        className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[85vh] flex-col rounded-t-2xl bg-[#1a1a1a] shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Report details"
       >
-        <div className="flex justify-center pt-3">
-          <div className="h-1 w-12 rounded-full bg-neutral-600" />
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <button
-            type="button"
-            onClick={openPhotoViewer}
-            className="block w-full px-4 pt-2"
-          >
-            <div className="aspect-video w-full overflow-hidden rounded-xl bg-[#2a2a2a]">
-              <img
-                src={report.photo_url}
-                alt="Reported savesie"
-                className="h-full w-full object-cover"
-              />
-            </div>
-          </button>
-          <div className="space-y-2 p-4">
-            <p className="text-sm text-neutral-400">
-              {timeAgo(report.created_at)}
-              {report.object_type && report.object_type in OBJECT_TYPE_LABELS && (
-                <span className="ml-2 text-white">
-                  · {(OBJECT_TYPE_LABELS as Record<string, string>)[report.object_type]}
-                </span>
-              )}
-            </p>
-            <p className="min-h-[1.5rem] text-white">{address ?? 'Loading address…'}</p>
-          </div>
-        </div>
-        <div className="shrink-0 border-t border-neutral-800 bg-[#1a1a1a] p-4 pb-[env(safe-area-inset-bottom)]">
-          {!showGoneConfirm ? (
-            <>
-              {!alreadyResolved && (
-                <button
-                  type="button"
-                  onClick={() => setShowGoneConfirm(true)}
-                  className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#2a2a2a] font-semibold text-white transition active:opacity-90"
-                >
-                  Is the savesie gone?
-                </button>
-              )}
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+
+      {/* Photo */}
+      <img
+        src={report.photo_url}
+        alt="Reported savesie"
+        onClick={(e) => e.stopPropagation()}
+        draggable={false}
+        style={{
+          maxWidth: '92vw',
+          maxHeight: '60vh',
+          width: 'auto',
+          height: 'auto',
+          objectFit: 'contain',
+          borderRadius: 10,
+          boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+        }}
+      />
+
+      {/* Info + actions */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '92vw',
+          maxWidth: 480,
+          marginTop: 16,
+          backgroundColor: 'rgba(26,26,26,0.95)',
+          borderRadius: 16,
+          padding: 16,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        <p style={{ color: '#aaa', fontSize: 13, margin: 0 }}>
+          {timeAgo(report.created_at)}
+          {report.object_type && report.object_type in OBJECT_TYPE_LABELS && (
+            <span style={{ color: 'white', marginLeft: 8 }}>
+              · {(OBJECT_TYPE_LABELS as Record<string, string>)[report.object_type]}
+            </span>
+          )}
+        </p>
+        <p style={{ color: 'white', margin: 0, minHeight: 24 }}>
+          {address ?? 'Loading address…'}
+        </p>
+
+        {!showGoneConfirm ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+            {!alreadyResolved && (
               <button
                 type="button"
-                onClick={onClose}
-                className={`flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#FF6B00] font-semibold text-white transition active:opacity-90 ${!alreadyResolved ? 'mt-2' : ''}`}
+                onClick={() => setShowGoneConfirm(true)}
+                style={{
+                  minHeight: 48,
+                  borderRadius: 12,
+                  backgroundColor: '#2a2a2a',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
               >
-                Close
+                Is the savesie gone?
               </button>
-            </>
-          ) : (
-            <div className="rounded-xl border border-neutral-700 bg-[#252525] p-4">
-              <p className="mb-3 text-center text-sm font-medium text-white">
-                Mark this spot as cleared?
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleMarkGone}
-                  disabled={resolving}
-                  className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[#FF6B00] font-semibold text-white transition active:opacity-90 disabled:opacity-50"
-                >
-                  {resolving ? (
-                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    "Yes, it's gone"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowGoneConfirm(false)}
-                  disabled={resolving}
-                  className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[#2a2a2a] font-semibold text-white transition active:opacity-90"
-                >
-                  Nope, still there
-                </button>
-              </div>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                minHeight: 48,
+                borderRadius: 12,
+                backgroundColor: '#FF6B00',
+                color: 'white',
+                fontWeight: 600,
+                fontSize: 15,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <div style={{ marginTop: 4 }}>
+            <p style={{ color: 'white', textAlign: 'center', fontSize: 14, marginBottom: 8 }}>
+              Mark this spot as cleared?
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={handleMarkGone}
+                disabled={resolving}
+                style={{
+                  flex: 1,
+                  minHeight: 48,
+                  borderRadius: 12,
+                  backgroundColor: '#FF6B00',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  border: 'none',
+                  cursor: 'pointer',
+                  opacity: resolving ? 0.5 : 1,
+                }}
+              >
+                {resolving ? '…' : "Yes, it's gone"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGoneConfirm(false)}
+                disabled={resolving}
+                style={{
+                  flex: 1,
+                  minHeight: 48,
+                  borderRadius: 12,
+                  backgroundColor: '#2a2a2a',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                Nope, still there
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-
-      {photoViewerOpen && (
-        <PhotoViewer
-          src={report.photo_url}
-          alt="Reported savesie"
-          onClose={closePhotoViewer}
-        />
-      )}
-    </>
+    </div>
   )
 }

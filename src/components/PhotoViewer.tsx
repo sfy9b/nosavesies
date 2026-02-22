@@ -7,15 +7,19 @@ interface PhotoViewerProps {
 }
 
 export function PhotoViewer({ src, alt, onClose }: PhotoViewerProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const imageRef = useRef<HTMLImageElement>(null)
   const [scale, setScale] = useState(1)
-  const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const lastPinchDistRef = useRef<number | null>(null)
-  const lastPinchCenterRef = useRef<{ x: number; y: number } | null>(null)
-  const lastTouchRef = useRef<{ x: number; y: number } | null>(null)
   const [isPinching, setIsPinching] = useState(false)
+  const imageRef = useRef<HTMLImageElement>(null)
 
+  // Lock body scroll while open
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
+  // Escape key
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -24,117 +28,115 @@ export function PhotoViewer({ src, alt, onClose }: PhotoViewerProps) {
     return () => window.removeEventListener('keydown', handleKey)
   }, [onClose])
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose()
-  }
-
-  const handleClose = () => {
-    onClose()
-  }
-
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       setIsPinching(true)
+      lastPinchDistRef.current = Math.hypot(
+        e.touches[1].clientX - e.touches[0].clientX,
+        e.touches[1].clientY - e.touches[0].clientY
+      )
+    }
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && lastPinchDistRef.current !== null) {
+      e.preventDefault()
       const dist = Math.hypot(
         e.touches[1].clientX - e.touches[0].clientX,
         e.touches[1].clientY - e.touches[0].clientY
       )
+      const delta = dist / lastPinchDistRef.current
       lastPinchDistRef.current = dist
-      lastPinchCenterRef.current = {
-        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-      }
-    } else if (e.touches.length === 1) {
-      lastTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      setScale((s) => Math.min(4, Math.max(1, s * delta)))
     }
   }, [])
-
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (e.touches.length === 2 && lastPinchDistRef.current !== null && lastPinchCenterRef.current) {
-        e.preventDefault()
-        const dist = Math.hypot(
-          e.touches[1].clientX - e.touches[0].clientX,
-          e.touches[1].clientY - e.touches[0].clientY
-        )
-        const delta = dist / lastPinchDistRef.current
-        lastPinchDistRef.current = dist
-        setScale((s) => Math.min(4, Math.max(0.5, s * delta)))
-      }
-    },
-    []
-  )
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (e.touches.length < 2) {
       lastPinchDistRef.current = null
-      lastPinchCenterRef.current = null
       setIsPinching(false)
+      setScale((s) => (s < 1 ? 1 : s))
     }
-    if (e.touches.length < 1) lastTouchRef.current = null
+  }, [])
+
+  const handleDoubleTap = useCallback(() => {
+    setScale((s) => (s > 1 ? 1 : 2.5))
   }, [])
 
   return (
     <div
-      ref={containerRef}
-      className="fixed inset-0 z-[60]"
       style={{
-        width: '100vw',
-        height: '100vh',
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(20px)',
-        animation: 'photoViewerBackdropIn 0.25s ease-out',
+        animation: 'fadeIn 0.2s ease-out',
       }}
-      onClick={handleBackdropClick}
+      onClick={onClose}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Photo full screen"
     >
       <style>{`
-        @keyframes photoViewerBackdropIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.97); }
+          to { opacity: 1; transform: scale(1); }
         }
       `}</style>
+
       <button
         type="button"
-        onClick={handleClose}
-        className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition hover:bg-black/70"
+        onClick={(e) => { e.stopPropagation(); onClose() }}
+        style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 10,
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+        }}
         aria-label="Close"
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M18 6L6 18M6 6l12 12" />
         </svg>
       </button>
-      <div
-        style={{ touchAction: 'none', paddingTop: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}
+
+      <img
+        ref={imageRef}
+        src={src}
+        alt={alt}
         onClick={(e) => e.stopPropagation()}
-      >
-        <img
-          ref={imageRef}
-          src={src}
-          alt={alt}
-          className="select-none"
-          style={{
-            maxWidth: 'min(90vw, 1200px)',
-            maxHeight: '85vh',
-            width: 'auto',
-            height: 'auto',
-            objectFit: 'contain',
-            borderRadius: 8,
-            boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
-            transform: `scale(${scale}) translate(${translate.x}px, ${translate.y}px)`,
-            transition: isPinching ? 'none' : 'transform 0.1s ease-out',
-          }}
-          draggable={false}
-        />
-      </div>
+        onDoubleClick={(e) => { e.stopPropagation(); handleDoubleTap() }}
+        draggable={false}
+        style={{
+          maxWidth: '92vw',
+          maxHeight: '88vh',
+          width: 'auto',
+          height: 'auto',
+          objectFit: 'contain',
+          borderRadius: 10,
+          boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+          transform: `scale(${scale})`,
+          transition: isPinching ? 'none' : 'transform 0.2s ease-out',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          touchAction: 'none',
+        }}
+      />
     </div>
   )
 }
