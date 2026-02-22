@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { compressImage } from '../lib/compress'
 import type { InsertReport, ObjectType } from '../types/report'
 import { OBJECT_TYPE_EMOJI, OBJECT_TYPE_LABELS, OBJECT_TYPES } from '../types/report'
+import { ConeSVG } from './ConeSVG'
 
 interface ReportButtonProps {
   isPhotoOpen: boolean
@@ -142,7 +143,10 @@ export function ReportButton({ isPhotoOpen, onSuccess, onError }: ReportButtonPr
                 disabled={uploading}
                 className="flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-2xl bg-[#2a2a2a] py-4 text-white transition active:scale-[0.98] disabled:opacity-70"
               >
-                <span className="text-2xl">{OBJECT_TYPE_EMOJI[type]}</span>
+                {type === 'cone'
+                  ? <ConeSVG size={32} />
+                  : <span className="text-2xl">{OBJECT_TYPE_EMOJI[type]}</span>
+                }
                 <span className="text-sm font-semibold">{OBJECT_TYPE_LABELS[type]}</span>
               </button>
             ))}
@@ -179,7 +183,7 @@ export function ReportButton({ isPhotoOpen, onSuccess, onError }: ReportButtonPr
         {step === 'getting' || uploading ? (
           <span className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
         ) : (
-          <>Report a Savesie 🚧</>
+          <><ConeSVG size={22} /><span style={{ marginLeft: 8 }}>Report a Savesie</span></>
         )}
       </button>
     </div>
