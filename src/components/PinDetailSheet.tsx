@@ -27,8 +27,11 @@ export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetPr
   const [address, setAddress] = useState<string | null>(null)
   const [showGoneConfirm, setShowGoneConfirm] = useState(false)
   const [resolving, setResolving] = useState(false)
+  const [flagged, setFlagged] = useState(false)
+  const [flagging, setFlagging] = useState(false)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
   const alreadyResolved = hasResolved(report.id) || report.resolved === true
+  const alreadyFlagged = flagged || localStorage.getItem(`flagged_${report.id}`) === 'true'
 
   // Hide report button while this is open
   useEffect(() => {
@@ -67,6 +70,18 @@ export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetPr
     setShowGoneConfirm(false)
     onResolved?.(report.id)
     onClose()
+  }
+
+  const handleFlag = async () => {
+    if (alreadyFlagged || flagging) return
+    setFlagging(true)
+    const { error } = await supabase
+      .from('flags')
+      .insert({ report_id: report.id })
+    setFlagging(false)
+    if (error) return
+    localStorage.setItem(`flagged_${report.id}`, 'true')
+    setFlagged(true)
   }
 
   return (
@@ -198,6 +213,26 @@ export function PinDetailSheet({ report, onClose, onResolved }: PinDetailSheetPr
               }}
             >
               Close
+            </button>
+            <button
+              type="button"
+              onClick={handleFlag}
+              disabled={alreadyFlagged || flagging}
+              style={{
+                minHeight: 40,
+                borderRadius: 12,
+                backgroundColor: 'transparent',
+                border: 'none',
+                color: alreadyFlagged ? '#555' : '#888',
+                fontSize: 13,
+                cursor: alreadyFlagged ? 'default' : 'pointer',
+              }}
+            >
+              {alreadyFlagged
+                ? 'Report flagged for review'
+                : flagging
+                ? 'Flagging…'
+                : 'Flag this report as inappropriate'}
             </button>
           </div>
         ) : (
