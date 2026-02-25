@@ -141,8 +141,8 @@ export function MapView({ onShowToast }: MapViewProps = {}) {
       const marker = new google.maps.Marker({
         position: { lat: report.lat, lng: report.lng },
         map,
-        icon: getMarkerIcon(report.object_type),
-        title: report.object_type ?? 'savesie',
+        icon: getMarkerIcon(report.object_type as string | undefined),
+        title: report.object_type || 'savesie',
       })
       marker.addListener('click', () => setSelectedReport(report))
       return marker
